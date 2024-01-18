@@ -19,6 +19,37 @@ $Env:DOTNET_CLI_TELEMETRY_OPTOUT = 1
 ### Declare global functions and aliases      ###
 #################################################
 
+function Import-ModuleSafe {
+  <#
+  .SYNOPSIS
+    Imports a module, but only if it exists. Displays a warning if the minimum version is not satisfied.
+    Returns $true if the module was imported; otherwise $false.
+
+  .PARAMETER Name
+    Name of the module to import.
+
+  .PARAMETER MinimumVersion
+    Expected minimum version of the module. Version is not checked if this parameter is not specified.
+  #>
+  param (
+    [string]$Name,
+    [version]$MinimumVersion = $null
+  )
+  # Find newest version of the module.
+  $moduleRef = (Get-Module -ListAvailable -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1)
+  if ($moduleRef) {
+    if ($MinimumVersion -and $moduleRef.Version -lt $MinimumVersion) {
+      Write-Warning "$Name module version $($moduleRef.Version) is untested. Update to $MinimumVersion or newer.`n  Update-Module $Name"
+    }
+    Import-Module $moduleRef
+    return $true
+  }
+  elseif (!$SkipMissingModuleWarning) {
+    Write-Warning "$Name module could not be found. Install module or set `$SkipMissingModuleWarning = `$true.`n  Install-Module $Name"
+  }
+  return $false
+}
+
 function Set-AliasIfValid {
   <#
     .SYNOPSIS
@@ -105,10 +136,11 @@ Set-Alias -Name '..' -Value Set-ParentLocation -Scope Global -Force
 #################################################
 
 # Configure the behavior of PSReadLine, which is responsible for almost all of command line editing.
-& {
+# PSReadLine is included in PowerShell 5.1 and newer, but doesn't seem to be updated when PowerShell is updated.
+if (Import-ModuleSafe -Name PSReadLine -MinimumVersion 2.3.4) {
   # See: https://learn.microsoft.com/en-us/powershell/module/psreadline/set-psreadlineoption?view=powershell-7.4
   # Use "Get-PSReadLineOption" to see current settings.
-  $psReadLineOptions = @{
+  $options = @{
     # Disable beeps (e.g. when pressing backspace on empty line).
     BellStyle            = 'None'
 
@@ -120,6 +152,7 @@ Set-Alias -Name '..' -Value Set-ParentLocation -Scope Global -Force
 
     # Show command auto-completion in a list, rather than inline.
     PredictionViewStyle  = 'ListView'
+    PredictionSource     = 'HistoryAndPlugin'
 
     # If the prompt spans more than one line, specify a value for this parameter. Default is 0
     # It doesn't really seem to do anything.
@@ -149,7 +182,7 @@ Set-Alias -Name '..' -Value Set-ParentLocation -Scope Global -Force
       ListPredictionTooltipColor = "`e[97;2;3m" # Undocumented.
     } #>
   }
-  Set-PSReadLineOption @psReadLineOptions
+  Set-PSReadLineOption @options
 }
 
 # Load and configure oh-my-posh, for fancy prompt. Requires a Nerd Font.
@@ -157,32 +190,27 @@ if (Get-Command oh-my-posh -CommandType Application -ErrorAction SilentlyContinu
   & oh-my-posh --init --shell pwsh --config $PSScriptRoot\simonbondo.omp.json | Invoke-Expression
 }
 elseif (!$SkipMissingModuleWarning) {
-  Write-Warning "oh-my-posh missing.`n  See https://ohmyposh.dev/docs/installation/windows to install or set `$SkipMissingModuleWarning = `$true"
+  Write-Warning "oh-my-posh could not be found. See https://ohmyposh.dev/ to install or set `$SkipMissingModuleWarning = `$true`n  iex ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))"
 }
 
 # Load and configure posh-git, for git status and tab completion.
-Import-Module (Join-Path $PSScriptRoot '..\..\GitHome\posh-git.git\src\posh-git.psd1')
-# All this config might not be necessary when using oh-my-posh.
-$GitPromptSettings.DefaultPromptPrefix.Text = "`n" + $GitPromptSettings.DefaultPromptPrefix.Text
-$GitPromptSettings.DefaultPromptWriteStatusFirst = $true
-$GitPromptSettings.PathStatusSeparator.Text = '`n'
-$GitPromptSettings.BranchBehindAndAheadDisplay = 'Compact'
-$GitPromptSettings.DefaultPromptBeforeSuffix = '`n'
-$GitPromptSettings.ShowStatusWhenZero = $false
-$GitPromptSettings.DefaultPromptSuffix.Text = 'λ ' # [char]0x3bb
-$GitPromptSettings.SetEnvColumns = $true # Adds environment variables with size of terminal.
-# POSH_GIT_ENABLED makes oh-my-posh use posh-git for git status, to avoid doing it twice.
-$env:POSH_GIT_ENABLED = $true
+if (Import-ModuleSafe -Name posh-git -MinimumVersion 1.1.0) {
+  # All this config might not be necessary when using oh-my-posh.
+  $GitPromptSettings.DefaultPromptPrefix.Text = "`n" + $GitPromptSettings.DefaultPromptPrefix.Text
+  $GitPromptSettings.DefaultPromptWriteStatusFirst = $true
+  $GitPromptSettings.PathStatusSeparator.Text = '`n'
+  $GitPromptSettings.BranchBehindAndAheadDisplay = 'Compact'
+  $GitPromptSettings.DefaultPromptBeforeSuffix = '`n'
+  $GitPromptSettings.ShowStatusWhenZero = $false
+  $GitPromptSettings.DefaultPromptSuffix.Text = 'λ ' # [char]0x3bb
+  $GitPromptSettings.SetEnvColumns = $true # Adds environment variables with size of terminal.
+  # POSH_GIT_ENABLED makes oh-my-posh use posh-git for git status (avoids fetching data twice?)
+  $Env:POSH_GIT_ENABLED = $true
+}
 
 # Terminal-Icons module adds icons to the prompt. Requires a Nerd Font.
-& {
-  if ($moduleRef = (Get-Module -ListAvailable -Name Terminal-Icons | Sort-Object -Property Version -Descending | Select-Object -First 1)) {
-    Import-Module $moduleRef
-  }
-  elseif (!$SkipMissingModuleWarning) {
-    Write-Warning "Terminal-Icons module missing.`n  Install with 'Install-Module Terminal-Icons' or set `$SkipMissingModuleWarning = `$true"
-  }
-}
+Import-ModuleSafe -Name Terminal-Icons -MinimumVersion 0.11.0 | Out-Null
+
 
 #################################################
 ### Register argument and tab completers      ###
@@ -199,11 +227,11 @@ if ((Get-Command -Name 'dotnet.exe' -CommandType Application -ErrorAction Ignore
 }
 
 # CompletionPredictor module provides IntelliSense and auto-completion for almost anything that can be tab-completed
-& {
-  if ($moduleRef = (Get-Module -ListAvailable -Name CompletionPredictor | Sort-Object -Property Version -Descending | Select-Object -First 1)) {
-    Import-Module $moduleRef
-  }
-  elseif (!$SkipMissingModuleWarning) {
-    Write-Warning "CompletionPredictor module missing.`n  Install with 'Install-Module CompletionPredictor' or set `$SkipMissingModuleWarning = `$true"
-  }
-}
+Import-ModuleSafe -Name CompletionPredictor | Out-Null
+
+
+#################################################
+### Cleanup                                   ###
+#################################################
+
+Remove-Item Function:\Import-ModuleSafe -ErrorAction SilentlyContinue
