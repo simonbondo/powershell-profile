@@ -1,0 +1,196 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "patch_pwsh_bleed": true,
+  "palette": {
+    "git": "#c19c00",
+    "git-foreground": "#000000",
+    "git-modified": "#ffeb3b",
+    "git-diverged": "#ffa300",
+    "git-ahead": "#ff7070",
+    "git-behind": "#90f090",
+    "user-foreground": "#606060",
+    "path": "#1010ff",
+    "path-foreground": "#e0e0e0",
+    "time": "#3030cc",
+    "time-foreground": "#a0a0a0",
+    "root-foreground": "#ff0000",
+    "prompt-foreground": "#e27b27",
+    "tool-foreground": "#606060"
+  },
+  "console_title_template": "{{ .Folder }}",
+  "blocks": [
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "newline": false,
+      "segments": [
+        {
+          "type": "text",
+          "style": "plain",
+          "template": "\u00a0{{if false}}This forces the next block newline to always work{{end}}"
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "newline": true,
+      "segments": [
+        {
+          "type": "git",
+          "style": "powerline",
+          "background": "p:git",
+          "background_templates": [
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}p:git-modified{{ end }}",
+            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}p:git-diverged{{ end }}",
+            "{{ if gt .Ahead 0 }}p:git-ahead{{ end }}",
+            "{{ if gt .Behind 0 }}p:git-behind{{ end }}"
+          ],
+          "foreground": "p:git-foreground",
+          "powerline_symbol": "\ue0c7 ",
+          "invert_powerline": true,
+          "properties": {
+            "fetch_status": true,
+            "fetch_upstream_icon": true,
+            "fetch_stash_count": true,
+            "commit_icon": "\uf417 ",
+            "rebase_icon": "\uf47f ",
+            "tag_icon": "\uf412 ",
+            "cherry_pick_icon": "\ue29b ",
+            "revert_icon": "\udb81\udd4d ",
+            "merge_icon": "\uf419 ",
+            "no_commits_icon": "\udb80\udc95 ",
+            "github_icon": "\uf408 ",
+            "git_icon": "\udb80\udea2 ",
+            "upstream_icons": {
+              "edora.dk": "\uebe8 "
+            }
+          },
+          "template": " {{ url .UpstreamIcon .UpstreamURL }}{{ .HEAD }}{{if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }} \uea73 {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }} \uf046 {{ .Staging.String }}{{ end }}{{ if gt .StashCount 0 }} \ueb4b {{ .StashCount }}{{ end }} "
+        },
+        {
+          "type": "text",
+          "style": "powerline",
+          "background": "transparent",
+          "powerline_symbol": "\ue0c6",
+          "template": "{{if .Segments.Git.UpstreamGone}} \u00a0{{end}}"
+        },
+        {
+          "type": "text",
+          "style": "powerline",
+          "background": "p:git",
+          "foreground": "p:git-foreground",
+          "powerline_symbol": "\ue0c6",
+          "template": " {{ .Segments.Git.Upstream }} "
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "newline": true,
+      "segments": [
+        {
+          "type": "text",
+          "style": "plain",
+          "foreground": "p:user-foreground",
+          "template": "<i>{{ url \"@simonbondo\" \"https://twitter.com/simonbondo\" }}</i>"
+        },
+        {
+          "type": "path",
+          "style": "powerline",
+          "foreground": "p:path-foreground",
+          "background": "p:path",
+          "powerline_symbol": "\ue0c7 ",
+          "invert_powerline": true,
+          "properties": {
+            "style": "full",
+            "mapped_locations_enabled": false
+          },
+          "template": "<p:path> </>{{ path .Path .Location }} "
+        },
+        {
+          "type": "text",
+          "style": "powerline",
+          "background": "transparent",
+          "powerline_symbol": "\ue0c6",
+          "template": " \u00a0"
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "right",
+      "segments": [
+        {
+          "type": "time",
+          "style": "diamond",
+          "foreground": "p:time-foreground",
+          "background": "p:time",
+          "leading_diamond": "\ue0c7 ",
+          "trailing_diamond": "\ue0c6",
+          "template": "<p:time> </><i>{{ .CurrentDate | date .Format }}</i> "
+        }
+      ]
+    },
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "newline": true,
+      "segments": [
+        {
+          "type": "status",
+          "style": "plain",
+          "template": "💩 "
+        },
+        {
+          "type": "root",
+          "style": "plain",
+          "foreground": "p:root-foreground",
+          "template": "\ue00a "
+        },
+        {
+          "type": "upgrade",
+          "style": "plain"
+        },
+        {
+          "type": "text",
+          "style": "plain",
+          "foreground": "p:prompt-foreground",
+          "template": "<b>λ</b> "
+        }
+      ]
+    },
+    {
+      "type": "rprompt",
+      "alignment": "right",
+      "segments": [
+        {
+          "type": "python",
+          "style": "plain",
+          "foreground": "p:tool-foreground",
+          "properties": {
+            "display_default": true
+          },
+          "template": "<i>{{ if .Venv }}{{ .Venv }} {{ end }}\ue73c {{ .Full }}</i>"
+        },
+        {
+          "type": "npm",
+          "style": "plain",
+          "foreground": "p:tool-foreground",
+          "properties": {
+            "fetch_version": false
+          },
+          "template": "<i>\ue71e {{ .Full }}</i>"
+        },
+        {
+          "type": "dotnet",
+          "style": "plain",
+          "foreground": "p:tool-foreground",
+          "template": "<i>\ue77f {{ if .Unsupported }}\uf071{{ else }}{{ .Full }}{{ end }}</i>"
+        }
+      ]
+    }
+  ],
+  "version": 2
+}
