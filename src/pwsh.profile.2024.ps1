@@ -135,6 +135,14 @@ Set-Alias -Name '..' -Value Set-ParentLocation -Scope Global -Force
 ### Configure look and feel                   ###
 #################################################
 
+# Load and configure oh-my-posh, for fancy prompt. Requires a Nerd Font.
+if (Get-Command oh-my-posh -CommandType Application -ErrorAction SilentlyContinue) {
+  & oh-my-posh --init --shell pwsh --config $PSScriptRoot\simonbondo.omp.json | Invoke-Expression
+}
+elseif (!$SkipMissingModuleWarning) {
+  Write-Warning "oh-my-posh could not be found. See https://ohmyposh.dev/ to install or set `$SkipMissingModuleWarning = `$true`n  iex ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))"
+}
+
 # Configure the behavior of PSReadLine, which is responsible for almost all of command line editing.
 # PSReadLine is included in PowerShell 5.1 and newer, but doesn't seem to be updated when PowerShell is updated.
 if (Import-ModuleSafe -Name PSReadLine -MinimumVersion 2.3.4) {
@@ -183,14 +191,6 @@ if (Import-ModuleSafe -Name PSReadLine -MinimumVersion 2.3.4) {
     } #>
   }
   Set-PSReadLineOption @options
-}
-
-# Load and configure oh-my-posh, for fancy prompt. Requires a Nerd Font.
-if (Get-Command oh-my-posh -CommandType Application -ErrorAction SilentlyContinue) {
-  & oh-my-posh --init --shell pwsh --config $PSScriptRoot\simonbondo.omp.json | Invoke-Expression
-}
-elseif (!$SkipMissingModuleWarning) {
-  Write-Warning "oh-my-posh could not be found. See https://ohmyposh.dev/ to install or set `$SkipMissingModuleWarning = `$true`n  iex ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))"
 }
 
 # Load and configure posh-git, for git status and tab completion.
