@@ -1,7 +1,3 @@
-# Get nerd font from here: https://www.nerdfonts.com/font-downloads
-# Configure Windows Terminal to use that font.
-# "CaskaydiaCove Nerd Font" is recommended.
-
 #################################################
 ### Configure Env and global variables        ###
 #################################################
