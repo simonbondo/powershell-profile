@@ -4,9 +4,13 @@
 
   .PARAMETER StartupPath
     When script done, this path will be set as the current location, if it was default on startup.
+
+  .PARAMETER AutoAliasPaths
+    Specify any number of directory paths to scan for shell scripts and executables, which should be aliased automatically.
 #>
 param(
-  $StartupPath
+  $StartupPath,
+  [string[]]$AutoAliasPaths = @()
 )
 
 #################################################
@@ -59,13 +63,40 @@ function Set-AliasIfValid {
   <#
     .SYNOPSIS
       Creates or updates an alias for an executable; but only if it exists.
+
+    .PARAMETER Name
+      The name of the alias to create or update.
+      The name will be converted to PascalCase, if it contains spaces.
+
+    .PARAMETER Command
+      The path to the executable or script to create an alias for.
   #>
   param(
     [Parameter(Mandatory = $true)][string]$Name,
     [Parameter(Mandatory = $true)][string]$Command
   )
-  If ((Test-Path -PathType Leaf $Command)) {
+  if ($Name -match ' ') {
+    # Make name PascalCase, if it contains spaces
+    $Name = ($Name -split ' ' | ForEach-Object { $_.Remove(1).ToUpper() + $_.Substring(1).ToLower() }) -join ''
+  }
+
+  if ((Test-Path -PathType Leaf $Command)) {
     Set-Alias -Name $Name -Value $Command -Scope Global -Force
+  }
+}
+
+function Import-AutoAliases {
+  <#
+    .SYNOPSIS
+      Scan for all PowerShell scripts and executables in the specified paths, and create aliases for them.
+  #>
+  if (!$AutoAliasPaths) { return }
+  foreach ($path in $AutoAliasPaths) {
+    if (Test-Path -LiteralPath $path -PathType Container) {
+      Get-ChildItem -LiteralPath $path -File -Include *.ps1, *.bat, *.cmd, *.exe, *.com | ForEach-Object {
+        Set-AliasIfValid -Name $_.BaseName -Command $_.FullName
+      }
+    }
   }
 }
 
@@ -142,6 +173,8 @@ function Get-GitRepositories {
 Set-AliasIfValid -Name 'npp' -Command "${Env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
 Set-AliasIfValid -Name 'npp' -Command "$Env:ProgramFiles\Notepad++\notepad++.exe"
 Set-AliasIfValid -Name '7z' -Command "$Env:ProgramFiles\7-Zip\7z.exe"
+
+Import-AutoAliases
 
 Set-Alias -Name '..' -Value Set-ParentLocation -Scope Global -Force
 
