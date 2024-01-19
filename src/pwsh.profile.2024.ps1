@@ -35,7 +35,7 @@ function Import-ModuleSafe {
   $moduleRef = (Get-Module -ListAvailable -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1)
   if ($moduleRef) {
     if ($MinimumVersion -and $moduleRef.Version -lt $MinimumVersion) {
-      Write-Warning "$Name module version $($moduleRef.Version) is untested. Update to $MinimumVersion or newer.`n  Update-Module $Name"
+      Write-Warning "$Name module version $($moduleRef.Version) is untested and may cause errors. Update to $MinimumVersion or newer.`n  Update-Module $Name"
     }
     Import-Module $moduleRef
     return $true
@@ -64,6 +64,7 @@ function Set-ParentLocation {
   <#
     .SYNOPSIS
       Sets the current location to the parent of the current location.
+
     .NOTES
       This is a workaround for the fact that PowerShell doesn't support arguments to commands when defining an alias.
   #>
@@ -74,23 +75,24 @@ function Test-GitRepository {
   <#
     .SYNOPSIS
       Tests if a given path is a git repository.
+
     .PARAMETER Path
       The path to test. Defaults to the current location.
+
+    .PARAMETER Mode
+      Set how the test is performed. Defaults to 'Reliable'.
+      'Simple' is very fast, but will fail if not checking the root of the repository or it has a special .GIT_DIR configured.
+      'SimpleRecursive' is like 'Simple', but will also check all parent directories.
+      'Reliable' uses git commands for the check, which makes it reliable, but is about 10 times slower.
   #>
   param(
-    $Path = (Get-Location)
+    $Path = (Get-Location),
+    [ValidateSet('Simple', 'SimpleRecursive', 'Reliable')]$Mode = 'Reliable'
   )
   $fullPath = Resolve-Path -LiteralPath $Path -ErrorAction SilentlyContinue
   if (!$fullPath) { return $false }
 
-  # Check for a ".git" child folder, which is MUCH faster that invoking a git command.
-  if (Test-Path -LiteralPath "$fullPath\.git" -PathType Container) { return $true }
-
-  return $false
-
-  # This is the slow way to do it, but it's more reliable.
-  # "Test-Path" uses ~0.5ms, while "git rev-parse" uses 35+ms.
-  <#
+  if ($Mode -eq 'Reliable') {
     # Backup the last exit code, because git will override it
     $ec = $LASTEXITCODE
     # "rev-parse" will set exit code to 0 if the path is a git repository (including children); otherwise 128
@@ -98,9 +100,17 @@ function Test-GitRepository {
     $isGitRepo = $LASTEXITCODE -eq 0
     # Restore the last exit code
     $LASTEXITCODE = $ec
-
     return $isGitRepo
-  #>
+  }
+
+  $simpleCheck = Test-Path -LiteralPath "$fullPath\.git" -PathType Container
+  # Return the result of the simple check, if it's true or there are no more parent folders to check.
+  if ($simpleCheck -or $Mode -eq 'Simple' -or ($parentPath = Split-Path -Path $fullPath -Parent) -eq '') {
+    return $simpleCheck
+  }
+
+  # Recurse to the parent folder.
+  return Test-GitRepository -Path $parentPath -Mode SimpleRecursive
 }
 
 function Get-GitRepositories {
@@ -110,7 +120,7 @@ function Get-GitRepositories {
   )
   $repos = @()
   foreach ($childPath in (Get-ChildItem -LiteralPath $Path -Directory -ErrorAction SilentlyContinue)) {
-    if (Test-GitRepository -Path $childPath) {
+    if (Test-GitRepository -Path $childPath -Mode Simple) {
       $repos += $childPath
     }
     elseif ($RecurseLevel -gt 0) {
