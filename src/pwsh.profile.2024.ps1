@@ -51,9 +51,7 @@ function Import-ModuleSafe {
     Import-Module $moduleRef
     return $true
   }
-  elseif (!$SkipMissingModuleWarning) {
-    Write-Warning "$Name module could not be found. Install module or set `$SkipMissingModuleWarning = `$true.`n  Install-Module $Name"
-  }
+  Write-Warning "$Name module could not be found. You can install the module from PowerShell:`n  Install-Module $Name"
   return $false
 }
 
@@ -156,8 +154,8 @@ Set-Alias -Name '..' -Value Set-ParentLocation -Scope Global -Force
 if (Get-Command oh-my-posh -CommandType Application -ErrorAction SilentlyContinue) {
   & oh-my-posh --init --shell pwsh --config $PSScriptRoot\simonbondo.omp.json | Invoke-Expression
 }
-elseif (!$SkipMissingModuleWarning) {
-  Write-Warning "oh-my-posh could not be found. See https://ohmyposh.dev/ to install or set `$SkipMissingModuleWarning = `$true`n  iex ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))"
+else {
+  Write-Warning "oh-my-posh could not be found. See https://ohmyposh.dev/ to install.`n  iex ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))"
 }
 
 # Configure the behavior of PSReadLine, which is responsible for almost all of command line editing.
