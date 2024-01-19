@@ -1,3 +1,14 @@
+<#
+  .SYNOPSIS
+    Script to configure the PowerShell environment.
+
+  .PARAMETER StartupPath
+    When script done, this path will be set as the current location, if it was default on startup.
+#>
+param(
+  $StartupPath
+)
+
 #################################################
 ### Configure Env and global variables        ###
 #################################################
@@ -241,3 +252,8 @@ Import-ModuleSafe -Name CompletionPredictor | Out-Null
 #################################################
 
 Remove-Item Function:\Import-ModuleSafe -ErrorAction SilentlyContinue
+
+# Change the startup location, if specified and current location is the default.
+if ($StartupPath -and $PWD.Path -eq $Env:USERPROFILE) {
+  Set-Location $StartupPath
+}
