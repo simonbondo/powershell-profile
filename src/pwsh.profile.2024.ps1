@@ -7,10 +7,14 @@
 
   .PARAMETER AutoAliasPaths
     Specify any number of directory paths to scan for shell scripts and executables, which should be aliased automatically.
+
+  .PARAMETER RepositoriesRootPath
+    Specify the root path where git repositories are located.
 #>
 param(
   $StartupPath,
-  [string[]]$AutoAliasPaths = @()
+  [string[]]$AutoAliasPaths = @(),
+  $RepositoriesRootPath
 )
 
 #################################################
@@ -179,6 +183,33 @@ function Get-GitRepositories {
     }
   }
   return $repos
+}
+
+function Set-RepositoryLocation {
+  <#
+    .SYNOPSIS
+      Sets the current location to the specified git repository, or the repository root, if not provided.
+
+    .PARAMETER Repository
+      The relative or absolute path of a repository.
+      The path can be set absolute, relative to the current location, or relative to the repositories root path of the profile.
+  #>
+  param(
+    $Repository = $null
+  )
+  if (!$Repository) {
+    Set-Location -LiteralPath $RepositoriesRootPath
+  }
+  elseif (Split-Path -Path $Repository -IsAbsolute) {
+    Set-Location -LiteralPath $Repository
+  }
+  elseif (Test-Path -LiteralPath ($relativePath = Join-Path -Path $RepositoriesRootPath -ChildPath $Repository)) {
+    # If the path is relative, test if it works relative to the repositories root path.
+    Set-Location -LiteralPath $relativePath
+  }
+  else {
+    Set-Location -LiteralPath $Repository
+  }
 }
 
 Set-AliasIfValid -Name 'npp' -Command "${Env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
