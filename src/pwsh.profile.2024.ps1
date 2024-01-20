@@ -154,6 +154,17 @@ function Test-GitRepository {
 }
 
 function Get-GitRepositories {
+  <#
+    .SYNOPSIS
+      Gets all git repositories in a path recursively, using a simple check.
+
+    .PARAMETER Path
+      The path where to start checking from. Defaults to the current location.
+
+    .PARAMETER RecurseLevel
+      The number of levels to recurse. Defaults to 0, which means only immediate child paths are checked.
+      Only children that were not repositories are recursed.
+  #>
   param(
     $Path = (Get-Location),
     $RecurseLevel = 0
