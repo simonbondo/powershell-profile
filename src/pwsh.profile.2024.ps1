@@ -219,6 +219,7 @@ Set-AliasIfValid -Name '7z' -Command "$Env:ProgramFiles\7-Zip\7z.exe"
 Import-AutoAliases
 
 Set-Alias -Name '..' -Value Set-ParentLocation -Scope Global -Force
+Set-Alias -Name 'r' -Value Set-RepositoryLocation -Scope Global -Force
 
 
 #################################################
@@ -305,6 +306,23 @@ Import-ModuleSafe -Name Terminal-Icons -MinimumVersion 0.11.0 | Out-Null
 #################################################
 ### Register argument and tab completers      ###
 #################################################
+
+# Register a custom argument completer for Set-RepositoryLocation, which will suggest repositories in the repositories root path.
+# The paths are sorted by LastWriteTime, so the most recently updated repositories are suggested first.
+if ($RepositoriesRootPath) {
+  Register-ArgumentCompleter -CommandName Set-RepositoryLocation -ParameterName Repository -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
+    Get-GitRepositories -Path $RepositoriesRootPath -RecurseLevel 2 |
+      Sort-Object -Property LastWriteTime -Descending |
+      Where-Object { $_.Name -like "*$wordToComplete*" } | ForEach-Object {
+        [System.Management.Automation.CompletionResult]::new(
+          "'$(Resolve-Path -LiteralPath $_.FullName -Relative -RelativeBasePath $RepositoriesRootPath)'",
+          $_.Name,
+          'ParameterValue',
+          $_.FullName)
+      }
+  }
+}
 
 # Register argument completer for dotnet CLI
 if ((Get-Command -Name 'dotnet.exe' -CommandType Application -ErrorAction Ignore)) {
