@@ -51,7 +51,7 @@ function Import-ModuleSafe {
     [version]$MinimumVersion = $null
   )
   # Find newest version of the module.
-  $moduleRef = (Get-Module -ListAvailable -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1)
+  $moduleRef = Get-Module -ListAvailable -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
   if ($moduleRef) {
     if ($MinimumVersion -and $moduleRef.Version -lt $MinimumVersion) {
       Write-Warning "$Name module version $($moduleRef.Version) is untested and may cause errors. Update to $MinimumVersion or newer.`n  Update-Module $Name"
@@ -209,6 +209,83 @@ function Set-RepositoryLocation {
   }
   else {
     Set-Location -LiteralPath $Repository
+  }
+}
+
+function Update-Profile {
+  <#
+    .SYNOPSIS
+      Updates the profile from remote repository, if there are any changes.
+
+    .PARAMETER UpdateModules
+      If specified, also updates all modules used by the profile.
+  #>
+  param(
+    [switch]$UpdateModules
+  )
+
+  function Update-ModuleIfNewer {
+    <#
+      .SYNOPSIS
+        Helper function that updates a module, if there is a newer version available online.
+    #>
+    param(
+      [string]$Name,
+      [switch]$InstallMissing
+    )
+    # Get currently installed version of the module.
+    $moduleRef = Get-Module -ListAvailable -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
+    if ($moduleRef) {
+      # If installed, compare with newest version online.
+      $onlineModule = Find-Module -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
+      if ($onlineModule.Version -gt $moduleRef.Version) {
+        # Update if online is newer
+        Write-Host "Updating module $Name from version $($moduleRef.Version) to $($onlineModule.Version)"
+        Remove-Module -Name $Name -Force -ErrorAction SilentlyContinue
+        Update-Module -Name $Name -Force
+        return $true
+      }
+    }
+    elseif ($InstallMissing) {
+      # Install module if not installed
+      Write-Host "Installing module $Name"
+      Install-Module -Name $Name -Force | Out-Null
+      return $true
+    }
+    return $false
+  }
+
+  # Store whatever the current location is
+  $updated = 0
+  Push-Location
+  try {
+    # Fetch updates to the profile repository
+    $profileRepository = & git -C $PSScriptRoot rev-parse --show-toplevel 2>$null
+    Set-Location -LiteralPath $profileRepository
+    & git fetch --quiet
+    $changes = & git log HEAD..origin/main
+    if ($changes.Length -gt 0) {
+      & git rebase origin/main --autostash
+      $updated++
+    }
+
+    if ($UpdateModules) {
+      # When there is an update to oh-my-posh, it will print a message to the console.
+      # TODO: How to check if there is such an update to oh-my-posh from here?
+      # Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))
+      # PSReadLine may print errors related to "Not being installed via Install-Module", because it's included in PowerShell 5.1 and newer.
+      if (Update-ModuleIfNewer -Name PSReadLine) { $updated++ }
+      if (Update-ModuleIfNewer -Name posh-git -InstallMissing) { $updated++ }
+      if (Update-ModuleIfNewer -Name Terminal-Icons -InstallMissing) { $updated++ }
+      if (Update-ModuleIfNewer -Name CompletionPredictor -InstallMissing) { $updated++ }
+    }
+  }
+  finally {
+    if ($updated -gt 0) {
+      Write-Host -ForegroundColor Cyan "`nProfile updated. You should restart PowerShell to apply the changes."
+    }
+    # Restore original location
+    Pop-Location
   }
 }
 
