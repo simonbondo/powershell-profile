@@ -212,6 +212,38 @@ function Set-RepositoryLocation {
   }
 }
 
+function Get-ModuleVersionInfo {
+  <#
+    .SYNOPSIS
+      Gets an object that describes the installed and latest version of a module.
+
+    .PARAMETER Name
+      The name of the module to get information about.
+
+    .PARAMETER Online
+      If specified, also checks for the latest version of the module online.
+  #>
+  param(
+    [string]$Name,
+    [switch]$Online
+  )
+
+  $loadedModule = Get-Module -Name $Name -ErrorAction SilentlyContinue | Sort-Object -Property Version -Descending | Select-Object -First 1
+  if (!$loadedModule) {
+    $installedModule = Get-Module -ListAvailable -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
+  }
+  if ($Online) {
+    $latestModule = Find-Module -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
+  }
+
+  [PSCustomObject]@{
+    Name             = $Name
+    IsLoaded         = $null -ne $loadedModule
+    InstalledVersion = ($loadedModule ?? $installedModule).Version
+    LatestVersion    = $latestModule.Version
+  }
+}
+
 function Update-Profile {
   <#
     .SYNOPSIS
@@ -231,27 +263,37 @@ function Update-Profile {
     #>
     param(
       [string]$Name,
-      [switch]$InstallMissing
+      [switch]$SkipInstallIfMissing
     )
-    # Get currently installed version of the module.
-    $moduleRef = Get-Module -ListAvailable -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
-    if ($moduleRef) {
-      # If installed, compare with newest version online.
-      $onlineModule = Find-Module -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
-      if ($onlineModule.Version -gt $moduleRef.Version) {
-        # Update if online is newer
-        Write-Host "Updating module $Name from version $($moduleRef.Version) to $($onlineModule.Version)"
-        Remove-Module -Name $Name -Force -ErrorAction SilentlyContinue
-        Update-Module -Name $Name -Force
+    $moduleInfo = Get-ModuleVersionInfo -Name $Name -Online
+
+    if ($null -eq $moduleInfo.InstalledVersion) {
+      if ($SkipInstallIfMissing) {
+        Write-Host "Module $($moduleInfo.Name) is not installed."
+        return $false
+      }
+
+      if ($UpdateModules) {
+        Write-Host "Installing module $($moduleInfo.Name) version $($moduleInfo.LatestVersion)"
+        Install-Module -Name $moduleInfo.Name -Force | Out-Null
         return $true
       }
+
+      Write-Host "Missing module $($moduleInfo.Name). Run command again with -UpdateModules flag to install version $($moduleInfo.LatestVersion)"
     }
-    elseif ($InstallMissing) {
-      # Install module if not installed
-      Write-Host "Installing module $Name"
-      Install-Module -Name $Name -Force | Out-Null
-      return $true
+    elseif ($moduleInfo.LatestVersion -gt $moduleInfo.InstalledVersion) {
+      if ($UpdateModules) {
+        Write-Host "Updating module $($moduleInfo.Name) from version $($moduleInfo.InstalledVersion) to $($moduleInfo.LatestVersion)"
+        if ($moduleInfo.IsLoaded) {
+          Remove-Module -Name $moduleInfo.Name -Force -ErrorAction SilentlyContinue
+        }
+        Update-Module -Name $moduleInfo.Name -Force
+        return $true
+      }
+
+      Write-Host "A new version of $($moduleInfo.Name) is available: $($moduleInfo.InstalledVersion) → $($moduleInfo.LatestVersion). Run command again with -UpdateModules flag to update."
     }
+
     return $false
   }
 
@@ -269,23 +311,40 @@ function Update-Profile {
       $updated++
     }
 
-    if ($UpdateModules) {
-      # When there is an update to oh-my-posh, it will print a message to the console.
-      # TODO: How to check if there is such an update to oh-my-posh from here?
-      # Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))
-      # PSReadLine may print errors related to "Not being installed via Install-Module", because it's included in PowerShell 5.1 and newer.
-      if (Update-ModuleIfNewer -Name PSReadLine) { $updated++ }
-      if (Update-ModuleIfNewer -Name posh-git -InstallMissing) { $updated++ }
-      if (Update-ModuleIfNewer -Name Terminal-Icons -InstallMissing) { $updated++ }
-      if (Update-ModuleIfNewer -Name CompletionPredictor -InstallMissing) { $updated++ }
+    # PSReadLine may print errors related to "Not being installed via Install-Module", because it's included in PowerShell 5.1 and newer.
+    if (Update-ModuleIfNewer -Name PSReadLine -SkipInstallIfMissing) { $updated++ }
+    if (Update-ModuleIfNewer -Name posh-git) { $updated++ }
+    if (Update-ModuleIfNewer -Name Terminal-Icons) { $updated++ }
+    if (Update-ModuleIfNewer -Name CompletionPredictor) { $updated++ }
+
+    # oh-my-posh needs to be handled separately, because it's not just a module. I haven't found a good way to detect if there is an update to oh-my-posh.
+    # POWERLINE_COMMAND environment var is set by oh-my-posh, if it's installed, and referse to the name of the oh-my-posh executable.
+    if (Test-Path Env:\POWERLINE_COMMAND) {
+      # Clearing the oh-my-posh cache and forcing an updates check, will cause the command to print a message if there is an update.
+      # Capturing and checking the message has content, would indicate that a new version is available.
+      & $env:POWERLINE_COMMAND cache clear | Out-Null
+      # The notice contains the new version number. It could be parsed if necessary.
+      $ompHasUpdate = $null -ne (& $env:POWERLINE_COMMAND notice)
+
+      if ($ompHasUpdate) {
+        if ($UpdateModules) {
+          Remove-Module -Name oh-my-posh-core -Force -ErrorAction SilentlyContinue
+          # This is just the command from the oh-my-posh documentation.
+          Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))
+          $updated++
+        }
+        else {
+          Write-Host 'A new version of oh-my-posh is available. Run command again with -UpdateModules flag to update.'
+        }
+      }
     }
   }
   finally {
+    # Restore original location
+    Pop-Location
     if ($updated -gt 0) {
       Write-Host -ForegroundColor Cyan "`nProfile updated. You should restart PowerShell to apply the changes."
     }
-    # Restore original location
-    Pop-Location
   }
 }
 
