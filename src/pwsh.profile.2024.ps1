@@ -305,7 +305,7 @@ Set-Alias -Name 'r' -Value Set-RepositoryLocation -Scope Global -Force
 
 # Load and configure oh-my-posh, for fancy prompt. Requires a Nerd Font.
 if (Get-Command oh-my-posh -CommandType Application -ErrorAction SilentlyContinue) {
-  & oh-my-posh --init --shell pwsh --config $PSScriptRoot\simonbondo.omp.json | Invoke-Expression
+  & oh-my-posh init pwsh --config $PSScriptRoot\simonbondo.omp.json | Invoke-Expression
 }
 else {
   Write-Warning "oh-my-posh could not be found. See https://ohmyposh.dev/ to install.`n  iex ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))"
