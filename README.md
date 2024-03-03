@@ -40,6 +40,7 @@ I recommend _CaskaydiaCove Nerd Font_, which is based on the excellent [Cascadia
 - Registers native argument completer for the dotnet CLI, if it is detected.
 
 - Includes a `Update-Profile` function, which can check for new versions of the used modules, and update them if available.
+  - When any update has been applied, a command is supplied `Get-ReloadProfileExpression` that will reload the profile.
   - **Please let me know, if there is a better way to check for new versions of oh-my-posh.**  
     It caches the latest update check for a week. Any check for new versions are silently ignored within this time. My hacky workaround is to clear the oh-my-posh cache and then trigger an update check. This will cause the update instructions to be printed in the terminal. I can then capture and check if this notice was printed or not.
 

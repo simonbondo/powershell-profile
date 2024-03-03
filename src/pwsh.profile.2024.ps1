@@ -343,9 +343,22 @@ function Update-Profile {
     # Restore original location
     Pop-Location
     if ($updated -gt 0) {
-      Write-Host -ForegroundColor Cyan "`nProfile updated. You should restart PowerShell to apply the changes."
+      Write-Host -ForegroundColor Cyan "`nProfile updated. You should restart PowerShell to apply the changes, or run the following command:"
+      Write-Host -ForegroundColor DarkYellow 'iex (Get-ReloadProfileExpression)'
     }
   }
+}
+
+function Get-ReloadProfileExpression {
+  <#
+    .SYNOPSIS
+      Gets an expression that when executed will reload the profile. Ideally used with "Invoke-Expression" to execute.
+  #>
+  $aliasPathsArgument = ''
+  if ($AutoAliasPaths) {
+    $aliasPathsArgument = " -AutoAliasPaths @('$($AutoAliasPaths -join "','")')"
+  }
+  ". $PSCommandPath -StartupPath '$StartupPath' -RepositoriesRootPath '$RepositoriesRootPath'$aliasPathsArgument"
 }
 
 Set-AliasIfValid -Name 'npp' -Command "${Env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
