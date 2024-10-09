@@ -297,8 +297,8 @@ function Update-Profile {
     return $false
   }
 
-  # Store whatever the current location is
   $updated = 0
+  # Store whatever the current location is
   Push-Location
   try {
     # Fetch updates to the profile repository
@@ -318,7 +318,7 @@ function Update-Profile {
     if (Update-ModuleIfNewer -Name CompletionPredictor) { $updated++ }
 
     # oh-my-posh needs to be handled separately, because it's not just a module. I haven't found a good way to detect if there is an update to oh-my-posh.
-    # POWERLINE_COMMAND environment var is set by oh-my-posh, if it's installed, and referse to the name of the oh-my-posh executable.
+    # POWERLINE_COMMAND environment var is set by oh-my-posh, if it's installed, and refers to the name of the oh-my-posh executable.
     if (Test-Path Env:\POWERLINE_COMMAND) {
       # Clearing the oh-my-posh cache and forcing an updates check, will cause the command to print a message if there is an update.
       # Capturing and checking the message has content, would indicate that a new version is available.
@@ -329,8 +329,7 @@ function Update-Profile {
       if ($ompHasUpdate) {
         if ($UpdateModules) {
           Remove-Module -Name oh-my-posh-core -Force -ErrorAction SilentlyContinue
-          # This is just the command from the oh-my-posh documentation.
-          Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://ohmyposh.dev/install.ps1'))
+          & $env:POWERLINE_COMMAND upgrade
           $updated++
         }
         else {
