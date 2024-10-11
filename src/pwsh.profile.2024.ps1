@@ -445,6 +445,11 @@ if (Import-ModuleSafe -Name posh-git -MinimumVersion 1.1.0) {
   $GitPromptSettings.SetEnvColumns = $true # Adds environment variables with size of terminal.
   # POSH_GIT_ENABLED makes oh-my-posh use posh-git for git status (avoids fetching data twice?)
   $Env:POSH_GIT_ENABLED = $true
+
+  # Something has broken in oh-my-posh, and above env-var is not sufficient to enable auto-complete.
+  # This global variable is read by omp to check if posh-git is enabled.
+  # See: https://github.com/JanDeDobbeleer/oh-my-posh/blob/4be054dd4b0ed98b04f6ecca627ecbb8253f402a/src/shell/scripts/omp.ps1#L189
+  $Global:_ompPoshGit = $true
 }
 
 # Terminal-Icons module adds icons to the prompt. Requires a Nerd Font.
