@@ -47,7 +47,7 @@
             "{{ if gt .Behind 0 }}p:git-behind{{ end }}"
           ],
           "foreground": "p:git-foreground",
-          "powerline_symbol": "\ue0c7 ",
+          "powerline_symbol": "\ue0c7",
           "invert_powerline": true,
           "properties": {
             "fetch_status": true,
@@ -101,7 +101,7 @@
           "style": "powerline",
           "foreground": "p:path-foreground",
           "background": "p:path",
-          "powerline_symbol": "\ue0c7 ",
+          "powerline_symbol": "\ue0c7",
           "invert_powerline": true,
           "properties": {
             "style": "full",
@@ -127,7 +127,7 @@
           "style": "diamond",
           "foreground": "p:time-foreground",
           "background": "p:time",
-          "leading_diamond": "\ue0c7 ",
+          "leading_diamond": "\ue0c7",
           "trailing_diamond": "\ue0c6",
           "template": "<p:time> </><i>{{ .CurrentDate | date .Format }}</i> "
         }
@@ -192,5 +192,5 @@
       ]
     }
   ],
-  "version": 2
+  "version": 3
 }
